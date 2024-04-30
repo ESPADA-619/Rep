@@ -1,0 +1,798 @@
+<<<<<<<<<<<<<<,IDOC_BATCHJOB_ABAP_EMAIL_EXCEL.txt>>>>>>>
+
+CLASS zcl_automonitoring_data DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+
+    TYPES:
+      BEGIN OF ty_s_job_name,
+        sign   TYPE ddsign,
+        option TYPE ddoption,
+        low    TYPE btcjob,
+        high   TYPE btcjob,
+      END OF ty_s_job_name .
+    TYPES:
+      ty_t_job_name TYPE TABLE OF ty_s_job_name .
+    TYPES:
+      BEGIN OF ty_s_type,
+        sign   TYPE ddsign,
+        option TYPE ddoption,
+        low    TYPE edi_idoctp,
+        high   TYPE edi_idoctp,
+      END OF ty_s_type .
+    TYPES:
+      ty_t_type TYPE TABLE OF ty_s_type .
+    TYPES:
+      BEGIN OF ty_s_prn_no,
+        sign   TYPE ddsign,
+        option TYPE ddoption,
+        low    TYPE edi_sndprn,
+        high   TYPE edi_sndprn,
+      END OF ty_s_prn_no .
+    TYPES:
+      ty_t_prn_no TYPE TABLE OF ty_s_prn_no .
+    TYPES:
+      BEGIN OF ty_s_prt_type,
+        sign   TYPE ddsign,
+        option TYPE ddoption,
+        low    TYPE edi_sndprt,
+        high   TYPE edi_sndprt,
+      END OF ty_s_prt_type .
+    TYPES:
+      ty_t_prt_type TYPE TABLE OF ty_s_prt_type .
+    TYPES:
+      BEGIN OF ty_s_date,
+        sign   TYPE ddsign,
+        option TYPE ddoption,
+        low    TYPE dats,
+        high   TYPE dats,
+      END OF ty_s_DATE .
+    TYPES:
+      ty_t_date TYPE TABLE OF ty_s_date .
+    TYPES:
+      BEGIN OF ty_s_time,
+        sign   TYPE ddsign,
+        option TYPE ddoption,
+        low    TYPE tims,
+        high   TYPE tims,
+      END OF ty_s_time .
+    TYPES:
+      ty_t_time TYPE TABLE OF ty_s_time .
+    TYPES:
+      BEGIN OF ty_s_idoc,
+        docnum TYPE edi_docnum,
+        direct TYPE edi_direct,
+        mestyp TYPE edi_mestyp,
+        sndprn TYPE edi_sndprn,
+        cretim TYPE edi_cretim,
+        credat TYPE edi_credat,
+        status TYPE edi_status,
+        statxt TYPE edi_statx_,
+      END OF ty_s_idoc .
+    TYPES:
+      ty_t_idoc TYPE TABLE OF ty_s_idoc .
+    TYPES :
+      BEGIN OF ty_s_mail,
+        sign   TYPE ddsign,
+        option TYPE ddoption,
+        low    TYPE adr6-smtp_addr,
+        high   TYPE adr6-smtp_addr,
+      END OF ty_s_mail.
+    TYPES :
+    ty_t_mail TYPE TABLE OF ty_s_mail.
+
+    TYPES : it_text TYPE string.
+
+    TYPES:
+      BEGIN OF ty_s_dashboard_batchjob,
+        jobname TYPE btcjob,
+        sdldate TYPE btcsdldate,
+        status  TYPE char10,
+        comment TYPE char50,
+      END OF ty_s_dashboard_batchjob .
+    TYPES:
+      ty_t_dashboard_batchjob TYPE TABLE OF ty_s_dashboard_batchjob .
+    TYPES:
+      BEGIN OF ty_s_batchjob,
+        jobname    TYPE btcjob,
+        jobcount   TYPE btcjobcnt,
+        sdluname   TYPE btcsdlnm,
+        sdldate    TYPE btcsdldate,
+        sdltime    TYPE btcsdltime,
+        lastchdate TYPE btcjchdate,
+        enddate    TYPE btcxdate,
+        endtime    TYPE btcxtime,
+        status     TYPE btcstatus,
+      END OF ty_s_batchjob .
+    TYPES:
+      ty_t_batchjob TYPE TABLE OF ty_s_batchjob .
+    TYPES:
+      BEGIN OF ty_s_dashboard_idoc,
+        direct TYPE edi_direct,
+        mestyp TYPE edi_mestyp,
+        status TYPE edi_status,
+        count  TYPE  i,
+        statxt TYPE edi_statx_,
+      END OF ty_s_dashboard_idoc .
+    TYPES:
+      ty_t_dashboard_idoc TYPE STANDARD TABLE OF ty_s_dashboard_idoc .
+    DATA :  IT_mail TYPE TABLE OF ty_s_mail.
+    CONSTANTS mc_a TYPE char1 VALUE 'A' ##NO_TEXT.
+    CONSTANTS mc_f TYPE char1 VALUE 'F' ##NO_TEXT.
+    CONSTANTS mc_p TYPE char1 VALUE 'P' ##NO_TEXT.
+    CONSTANTS mc_r TYPE char1 VALUE 'R' ##NO_TEXT.
+    CONSTANTS mc_s TYPE char1 VALUE 'S' ##NO_TEXT.
+
+    CLASS-METHODS fetch_data_idoc
+      IMPORTING
+        !it_basic_type   TYPE ty_t_type
+        !it_partner_no   TYPE ty_t_prn_no
+        !it_partner_type TYPE ty_t_prt_type
+        !it_date         TYPE ty_t_date
+        !it_time         TYPE ty_t_time
+      EXPORTING
+        !et_idoc_details TYPE ty_t_idoc .
+    CLASS-METHODS fetch_data_batchjob
+      IMPORTING
+        !it_job_name  TYPE ty_t_job_name
+        !it_date      TYPE ty_t_date
+        !it_time      TYPE ty_t_time
+      EXPORTING
+        !et_batch_job TYPE ty_t_batchjob .
+    CLASS-METHODS fetch_data_xml .
+    CLASS-METHODS dashboard_data
+      IMPORTING
+        !it_idoc_details       TYPE ty_t_idoc
+        !it_batch_job          TYPE ty_t_batchjob
+      EXPORTING
+        !et_dashboard_idoc     TYPE ty_t_dashboard_idoc
+        !et_dashboard_batchjob TYPE ty_t_dashboard_batchjob .
+    CLASS-METHODS send_mail
+      IMPORTING
+        !it_mail         TYPE ty_t_mail
+        !it_idoc_details TYPE ty_t_idoc
+        !it_batch_job    TYPE ty_t_batchjob
+        !it_text         TYPE string.
+*        !it_dashboard_idoc TYPE  ty_t_dashboard_idoc
+*        !it_dashboard_batchjob TYPE ty_t_dashboard_batchjob .
+protected section.
+private section.
+ENDCLASS.
+
+
+
+CLASS ZCL_AUTOMONITORING_DATA IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_AUTOMONITORING_DATA=>DASHBOARD_DATA
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_IDOC_DETAILS                TYPE        TY_T_IDOC
+* | [--->] IT_BATCH_JOB                   TYPE        TY_T_BATCHJOB
+* | [<---] ET_DASHBOARD_IDOC              TYPE        TY_T_DASHBOARD_IDOC
+* | [<---] ET_DASHBOARD_BATCHJOB          TYPE        TY_T_DASHBOARD_BATCHJOB
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD dashboard_data.
+**    TYPES:
+**      BEGIN OF ty_s_idoc_msg,
+**        mestyp TYPE edi_mestyp,
+**        status TYPE edi_status,
+**        docnum TYPE edi_docnum,
+**        direct TYPE edi_direct,
+**        sndprn TYPE edi_sndprn,
+**        cretim TYPE edi_cretim,
+**        credat TYPE edi_credat,
+**        statxt TYPE edi_statx_,
+**      END OF ty_s_idoc_msg.
+
+
+
+*    TYPES:
+*      BEGIN OF ty_s_idoc_status,
+*        status TYPE edi_status,
+*        mestyp TYPE edi_mestyp,
+*        docnum TYPE edi_docnum,
+*        direct TYPE edi_direct,
+*        sndprn TYPE edi_sndprn,
+*        cretim TYPE edi_cretim,
+*        credat TYPE edi_credat,
+*        statxt TYPE edi_statx_,
+*      END OF ty_s_idoc_status .
+
+    DATA : lv_comment TYPE char50,
+           lv_status  TYPE char10.
+
+    CONSTANTS : lc_failed    TYPE char10 VALUE 'Failed',
+                lc_completed TYPE char10 VALUE 'Completed',
+                lc_scheduled TYPE char10 VALUE 'Scheduled',
+                lc_active    TYPE char10 VALUE 'Active',
+                lc_released  TYPE char10 VALUE 'Released'.
+
+
+    DATA : lt_dashboard_idoc TYPE STANDARD TABLE OF ty_s_dashboard_idoc,
+**           lt_idoc_msg       TYPE STANDARD TABLE OF ty_s_idoc_msg,
+*          lt_idoc_status    TYPE STANDARD TABLE OF ty_s_idoc_status,
+           ls_dashboard_idoc TYPE ty_s_dashboard_idoc.
+
+
+
+**    lt_idoc_msg =  VALUE #( FOR ls_idoc IN it_idoc_details ( mestyp  = ls_idoc-mestyp
+**                          status  = ls_idoc-status
+**                          docnum = ls_idoc-docnum
+**                          direct  = ls_idoc-direct
+**                          sndprn  = ls_idoc-sndprn
+**                          cretim  = ls_idoc-cretim
+**                          credat  = ls_idoc-credat
+**                          statxt  = ls_idoc-statxt  ) ).
+    DATA(lt_idoc_msg) = it_idoc_details[].
+
+    SORT lt_idoc_msg BY mestyp status.
+
+
+*    lt_idoc_status =  VALUE #( FOR ls_idoc1 IN it_idoc_details (
+*                          status  = ls_idoc1-status
+*                          mestyp  = ls_idoc1-mestyp
+*                          docnum = ls_idoc1-docnum
+*                          direct  = ls_idoc1-direct
+*                          sndprn  = ls_idoc1-sndprn
+*                          cretim  = ls_idoc1-cretim
+*                          credat  = ls_idoc1-credat
+*                          statxt  = ls_idoc1-statxt  ) ).
+*
+*    SORT lt_idoc_status BY  mestyp status.
+
+
+    DATA(lv_flag) = abap_false.
+
+    DESCRIBE TABLE lt_idoc_msg LINES DATA(lv_size).
+
+    LOOP AT lt_idoc_msg INTO DATA(ls_idoc_msg).
+      READ TABLE lt_idoc_msg INTO DATA(ls_idoc_status) WITH KEY mestyp = ls_idoc_msg-mestyp
+                                                                status = ls_idoc_msg-status
+                                                                   BINARY SEARCH.
+      IF sy-subrc EQ 0.
+        DATA(lv_index) = sy-tabix.
+        LOOP AT lt_idoc_msg INTO ls_idoc_status FROM lv_index.
+          IF ls_idoc_status-mestyp NE ls_idoc_msg-mestyp OR ls_idoc_status-status NE ls_idoc_msg-status.
+            EXIT.
+          ENDIF.
+          AT NEW status.
+            IF lv_flag <> abap_true.
+              DATA(lv_cnt) = 0.
+              lv_status = ls_idoc_status-status.
+              DATA(lv_statxt) = ls_idoc_status-statxt.
+            ENDIF.
+          ENDAT.
+          IF ls_idoc_status-status = lv_status.
+            lv_cnt = lv_cnt + 1.
+          ENDIF.
+          IF sy-tabix < lv_size AND lt_idoc_msg[ sy-tabix + 1 ]-status = lv_status .
+            lv_flag = abap_true.
+            CONTINUE.
+          ELSE.
+            lv_flag = abap_false.
+          ENDIF.
+          AT END OF status .
+            IF lv_cnt GT 0.
+              DATA lv_char(4).
+*              lv_char = lv_cnt .
+*              CONDENSE lv_char NO-GAPS.
+*              CONCATENATE lv_char 'no of IDOCs are of status' lv_status  INTO DATA(lv_idoc_str) SEPARATED BY space .
+*              CONCATENATE lv_idoc_dashboard lv_idoc_str INTO DATA(lv_idoc_dashboard) SEPARATED BY cl_abap_char_utilities=>newline.
+              ls_dashboard_idoc-direct = ls_idoc_status-direct.
+              ls_dashboard_idoc-mestyp = ls_idoc_status-mestyp.
+              ls_dashboard_idoc-status = lv_status.
+              ls_dashboard_idoc-count  = lv_cnt.
+              DATA(lv_star) = '****'.
+              IF ls_idoc_status-statxt CS lv_star.
+                ls_idoc_status-statxt = abap_false.
+              ENDIF.
+              ls_dashboard_idoc-statxt = ls_idoc_status-statxt.
+              APPEND ls_dashboard_idoc TO et_dashboard_idoc.
+            ENDIF.
+          ENDAT.
+        ENDLOOP.
+      ENDIF.
+    ENDLOOP.
+    SORT et_dashboard_idoc BY direct mestyp status.
+    DELETE ADJACENT DUPLICATES FROM  et_dashboard_idoc COMPARING direct mestyp status.
+
+    IF it_batch_job IS NOT INITIAL.
+
+      LOOP AT it_batch_job ASSIGNING FIELD-SYMBOL(<fs_batch_job>).
+        CLEAR : lv_comment, lv_status.
+        CASE <fs_batch_job>-status.
+          WHEN mc_f.                                                                  "For Completed jobs
+            lv_status = lc_completed.
+            lv_comment = |Ran Successfully on { <fs_batch_job>-sdldate+6(2) }.{ <fs_batch_job>-sdldate+4(2) }.{ <fs_batch_job>-sdldate+0(4) }|.
+
+          WHEN mc_a.                                                                 "For Cancelled jobs
+            lv_comment = |Cancelled on { <fs_batch_job>-sdldate+6(2) }.{ <fs_batch_job>-sdldate+4(2) }.{ <fs_batch_job>-sdldate+0(4) }|.
+            lv_status    =  lc_failed.
+
+          WHEN mc_p.
+            lv_status = lc_scheduled.
+            lv_comment = |Scheduled on { <fs_batch_job>-sdldate+6(2) }.{ <fs_batch_job>-sdldate+4(2) }.{ <fs_batch_job>-sdldate+0(4) }|.
+
+          WHEN mc_r.
+            lv_status = lc_active.
+            lv_comment = |Active on { <fs_batch_job>-sdldate+6(2) }.{ <fs_batch_job>-sdldate+4(2) }.{ <fs_batch_job>-sdldate+0(4) }|.
+
+          WHEN mc_s.
+            lv_status = lc_released.
+            lv_comment = |Released on { <fs_batch_job>-sdldate+6(2) }.{ <fs_batch_job>-sdldate+4(2) }.{ <fs_batch_job>-sdldate+0(4) }|.
+
+
+*        WHEN OTHERS.                                                               "For records with status P, S, R
+*          lv_status    =  <fs_batch_job>-status.
+**          lv_comment   =  lv_comment.
+
+        ENDCASE.
+
+        APPEND VALUE #( jobname =  <fs_batch_job>-jobname
+                        sdldate  = <fs_batch_job>-sdldate
+                        status   = lv_status
+                        comment  = lv_comment
+                        ) TO et_dashboard_batchjob.
+      ENDLOOP.
+
+      DATA(lt_idoc_a) = it_batch_job[].
+      DELETE lt_idoc_a WHERE status NE mc_a.
+
+      DATA(lt_idoc_f) = it_batch_job[].
+      DELETE lt_idoc_f WHERE status NE mc_f.
+
+      DESCRIBE TABLE lt_idoc_f LINES DATA(lv_success).
+      DESCRIBE TABLE lt_idoc_a LINES DATA(lv_failure).
+
+**        ALTERNATE OPTIMIZED LOGIC:
+
+*        LOOP AT lt_dashboard_idoc INTO DATA(ls_idoc).
+*          IF ls_idoc-status EQ mc_a.
+*            APPEND ls_idoc TO lt_idoc_a.
+*          ELSEIF ls_idoc-status EQ mc_f.
+*            APPEND ls_idoc TO lt_idoc_f.
+*          ENDIF.
+*        ENDLOOP.
+*
+*        lv_success = lines( lt_idoc_f ).
+*        lv_failure = lines( lt_idoc_a ).
+
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_AUTOMONITORING_DATA=>FETCH_DATA_BATCHJOB
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_JOB_NAME                    TYPE        TY_T_JOB_NAME
+* | [--->] IT_DATE                        TYPE        TY_T_DATE
+* | [--->] IT_TIME                        TYPE        TY_T_TIME
+* | [<---] ET_BATCH_JOB                   TYPE        TY_T_BATCHJOB
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD fetch_data_batchjob.
+
+    SELECT
+            jobname,                                "Selecting batch job data from tbtco table
+            jobcount,                               "based on input provided by user(time, date and jobname).
+            sdluname,
+            sdldate,
+            sdltime,
+            lastchdate,
+            enddate,
+            endtime,
+            status
+                   FROM tbtco
+                   WHERE  jobname   IN @it_job_name
+                   AND ( strtdate     IN @it_date
+                     OR    sdlstrtdt  IN @it_date
+                     OR    enddate    IN @it_date )
+                   AND ( strttime   IN @it_time
+                     OR  sdlstrttm  IN @it_time
+                     OR    endtime  IN @it_time )
+                   INTO TABLE @DATA(lt_batch_job) .
+
+    IF sy-subrc = 0.
+      SORT lt_batch_job DESCENDING BY jobname status enddate endtime.
+      DELETE ADJACENT DUPLICATES FROM lt_batch_job COMPARING jobname status.   "deleting all duplicate entries
+    ENDIF.
+
+    APPEND LINES OF lt_batch_job TO et_batch_job.
+
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_AUTOMONITORING_DATA=>FETCH_DATA_IDOC
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_BASIC_TYPE                  TYPE        TY_T_TYPE
+* | [--->] IT_PARTNER_NO                  TYPE        TY_T_PRN_NO
+* | [--->] IT_PARTNER_TYPE                TYPE        TY_T_PRT_TYPE
+* | [--->] IT_DATE                        TYPE        TY_T_DATE
+* | [--->] IT_TIME                        TYPE        TY_T_TIME
+* | [<---] ET_IDOC_DETAILS                TYPE        TY_T_IDOC
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD fetch_data_idoc.
+    SELECT a~docnum,
+       a~status,
+       a~statxt,
+       a~credat,
+       a~cretim,
+       b~direct,
+       b~sndprn,
+       b~sndprt,
+       b~mestyp,
+       b~idoctp,
+       b~maxsegnum
+  FROM edids AS a
+  INNER JOIN edidc AS b
+  ON b~docnum = a~docnum
+  WHERE a~credat IN @it_date
+  AND   a~cretim IN @it_time
+   AND  b~idoctp IN @it_basic_type
+   AND  b~sndprn IN @it_partner_no
+   AND  b~sndprt IN @it_partner_type
+  INTO TABLE @DATA(lt_idoc).
+
+    IF sy-subrc = 0.
+      SORT lt_idoc BY docnum.
+      DELETE ADJACENT DUPLICATES FROM lt_idoc COMPARING docnum.   "deleting all duplicate entries
+    ENDIF.
+
+    et_idoc_details = VALUE #( FOR ls1_idoc IN lt_idoc ( docnum = ls1_idoc-docnum
+                          direct  = ls1_idoc-direct
+                          mestyp  = ls1_idoc-mestyp
+                          sndprn  = ls1_idoc-sndprn
+                          cretim  = ls1_idoc-cretim
+                          credat  = ls1_idoc-credat
+                          status  = ls1_idoc-status
+                          statxt  = ls1_idoc-statxt        ) ).
+
+
+  ENDMETHOD.
+
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_AUTOMONITORING_DATA=>SEND_MAIL
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_MAIL                        TYPE        TY_T_MAIL
+* | [--->] IT_IDOC_DETAILS                TYPE        TY_T_IDOC
+* | [--->] IT_BATCH_JOB                   TYPE        TY_T_BATCHJOB
+* | [--->] IT_TEXT                        TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD send_mail.
+
+*Method to Send IDOC, Batch job, Dashboard Data as Excel Attactments via Mail
+*      
+
+  DATA : lv_string             TYPE string,
+         lv_data_string        TYPE string,
+         lc_idoc_header        TYPE string,
+         lc_batch_header       TYPE string,
+         batch_string          TYPE string,
+         batch_data_string     TYPE string,
+         lv_dash_idoc_string   TYPE string,
+         it_header             TYPE char250,
+         lv_xstring            TYPE xstring,
+         lv_batch_xstring      TYPE xstring,
+         lt_bin                TYPE solix_tab,
+         lt_batch_bin          TYPE solix_tab,
+         lt_idoc_details       TYPE ty_t_idoc,
+         ls_idoc_details       TYPE ty_s_idoc,
+         ls_batch_job          TYPE ty_s_batchjob,
+         ls_dashboard_idoc     TYPE ty_s_dashboard_idoc,
+         ls_dashboard_batchjob TYPE ty_s_dashboard_batchjob,
+         size                  TYPE so_obj_len,
+         gv_sub                TYPE string,
+         lo_recipient          TYPE REF TO if_recipient_bcs,
+*         ls_mail_id            TYPE adr6-smtp_addr,
+         ls_mail               TYPE ty_s_mail,
+         date                  TYPE syst-datum,
+         time                  TYPE syst-uzeit,
+         lv_timestamp          TYPE string,
+         ls_cretim             TYPE string,
+         lv_time               TYPE char10,
+         ls_date               TYPE char10,
+         ls_credat             TYPE char10,
+         ls_sdldate            TYPE char10,
+         ls_lastchdate         TYPE char10,
+         ls_enddate            TYPE char10,
+         ls_sdltime            TYPE char10,
+         ls_endtime            TYPE char10,
+         ls_sub                TYPE char100,
+         ls_html               TYPE w3html,
+         lt_html               TYPE STANDARD TABLE OF w3html,   "Html
+         message_body          TYPE bcsy_text,
+         bcs_exception         TYPE REF TO cx_bcs.
+
+  CONSTANTS :
+    lc_hiteam     TYPE char10      VALUE 'Hi All,',
+    lc_doc        TYPE char10      VALUE 'Doc Name',
+    lc_direct     TYPE char20      VALUE 'Directionof Idoc',
+    lc_msg        TYPE char20      VALUE 'Message Type',
+    lc_partner    TYPE char30      VALUE 'Partner Number of Sender',
+    lc_time       TYPE char20      VALUE 'Time Status',
+    lc_date       TYPE char20      VALUE 'Date Status',
+    lc_status     TYPE char10      VALUE 'Status',
+    lc_statxt     TYPE char20      VALUE 'Text for status code',
+    lc_jobname    TYPE char10      VALUE 'Jobname',
+    lc_jobcount   TYPE char10      VALUE 'Jobcount',
+    lc_sdluname   TYPE char20      VALUE 'Initiator of Job',
+    lc_sdldate    TYPE char20      VALUE 'Date of Job',
+    lc_sdltime    TYPE char20      VALUE 'Time of Job',
+    lc_lastchdate TYPE char20      VALUE 'Last Change Date',
+    lc_enddate    TYPE char10      VALUE 'Enddate',
+    lc_endtime    TYPE char10      VALUE 'Endtime',
+    lc_state      TYPE char30      VALUE 'State of Background Job',
+    lc_br         TYPE char10      VALUE '<br/><br>',
+    lc_htm        TYPE so_obj_tp   VALUE 'HTM',
+    lc_body       TYPE char6       VALUE '<body>',
+    lc_html       TYPE char6       VALUE '<html>',
+    lc_bodysub    TYPE char62      VALUE 'Please find the job Monitoring Report for',
+    lc_sub        TYPE string      VALUE 'Er1 daily monitoring report '.
+
+
+* Headings in Excel
+  CONCATENATE lc_doc lc_direct lc_msg lc_partner lc_time lc_date lc_status lc_statxt
+  INTO lc_idoc_header SEPARATED BY cl_abap_char_utilities=>horizontal_tab .
+
+  CONCATENATE  lc_jobname lc_jobcount lc_sdluname lc_sdldate lc_sdltime lc_lastchdate
+  lc_enddate lc_endtime lc_status INTO lc_batch_header  SEPARATED BY cl_abap_char_utilities=>horizontal_tab .
+  LOOP AT it_mail INTO ls_mail .
+*      ls_mail_id = ls_mail-low.
+*  Fetching Idoc data into String
+    IF it_idoc_details IS NOT INITIAL.
+      LOOP AT it_idoc_details ASSIGNING FIELD-SYMBOL(<ls_idoc_details>).
+*         Converting Date into DD.MM.YYYY
+        CALL FUNCTION 'CONVERT_DATE_TO_EXTERNAL'
+          EXPORTING
+            date_internal = <ls_idoc_details>-credat
+          IMPORTING
+            date_external = ls_credat.
+*         Converting Time Field
+        CONCATENATE <ls_idoc_details>-cretim+0(2) ':' <ls_idoc_details>-cretim+2(2) ':' <ls_idoc_details>-cretim+4(2)
+        INTO ls_cretim.
+
+        CONCATENATE
+       <ls_idoc_details>-docnum
+       <ls_idoc_details>-direct
+       <ls_idoc_details>-mestyp
+       <ls_idoc_details>-sndprn
+       ls_cretim
+       ls_credat
+       <ls_idoc_details>-status
+       <ls_idoc_details>-statxt
+         INTO lv_string SEPARATED BY  cl_abap_char_utilities=>horizontal_tab.
+
+        CONCATENATE  lv_string lv_data_string  INTO lv_data_string  SEPARATED BY cl_abap_char_utilities=>newline.
+
+      ENDLOOP.
+      CONCATENATE lc_idoc_header lv_data_string  INTO lv_data_string  "Add Header into String
+      SEPARATED BY cl_abap_char_utilities=>newline.
+    ENDIF.
+
+
+* Fetching Batch job data into String
+
+    IF  it_batch_job  IS NOT INITIAL.
+      LOOP AT it_batch_job ASSIGNING FIELD-SYMBOL(<ls_batch_job>).
+*             Converting Date fields into DD.MM.YYYY
+
+        CALL FUNCTION 'CONVERT_DATE_TO_EXTERNAL'
+          EXPORTING
+            date_internal = <ls_batch_job>-sdldate
+          IMPORTING
+            date_external = ls_sdldate.
+
+
+        CALL FUNCTION 'CONVERT_DATE_TO_EXTERNAL'
+          EXPORTING
+            date_internal = <ls_batch_job>-lastchdate
+          IMPORTING
+            date_external = ls_lastchdate.
+
+        IF <ls_batch_job>-enddate EQ ' '.
+          CLEAR ls_enddate.
+        ELSE.
+          CALL FUNCTION 'CONVERT_DATE_TO_EXTERNAL'
+            EXPORTING
+              date_internal = <ls_batch_job>-enddate
+            IMPORTING
+              date_external = ls_enddate.
+        ENDIF.
+
+*       Converting Time Fields
+
+        CONCATENATE <ls_batch_job>-sdltime+0(2) <ls_batch_job>-sdltime+2(2) <ls_batch_job>-sdltime+4(2)
+         INTO ls_sdltime SEPARATED BY ':'.
+
+        IF <ls_batch_job>-endtime EQ ' '.
+          CLEAR ls_endtime.
+        ELSE.
+          CONCATENATE <ls_batch_job>-endtime+0(2) ':' <ls_batch_job>-endtime+2(2) ':' <ls_batch_job>-endtime+4(2)
+         INTO ls_endtime.
+        ENDIF.
+
+        CONCATENATE
+         <ls_batch_job>-jobname
+         <ls_batch_job>-jobcount
+         <ls_batch_job>-sdluname
+         ls_sdldate
+         ls_sdltime
+         ls_lastchdate
+         ls_enddate
+         ls_endtime
+         <ls_batch_job>-status
+
+        INTO batch_string SEPARATED BY cl_abap_char_utilities=>horizontal_tab.
+        CONCATENATE batch_string batch_data_string  INTO batch_data_string
+        SEPARATED BY cl_abap_char_utilities=>newline.
+
+
+      ENDLOOP.
+      CONCATENATE lc_batch_header batch_data_string INTO batch_data_string "Add Header
+      SEPARATED BY cl_abap_char_utilities=>newline .
+
+    ENDIF.
+********************************************Dashboard Part*****************
+*    IF it_dashboard_idoc IS NOT INITIAL.
+*      LOOP AT it_dashboard_idoc INTO ls_dashboard_idoc.
+*        CONCATENATE
+*        ls_dashboard_idoc-direct
+*        ls_dashboard_idoc-mestyp
+*        ls_dashboard_idoc-status
+**        ls_dashboard_idoc-count
+*        ls_dashboard_idoc-statxt
+*        into lv_dash_idoc_string SEPARATED BY cl_abap_char_utilities=>horizontal_tab.
+*
+*
+*
+*endloop.
+*      ENDIF.
+*
+*---------------------------------Data Conversion ------------------------->
+*  Converting the IDOC data string to xstring
+
+    CALL FUNCTION 'SCMS_STRING_TO_XSTRING'
+      EXPORTING
+        text   = lv_data_string
+      IMPORTING
+        buffer = lv_xstring
+      EXCEPTIONS
+        failed = 1
+        OTHERS = 2.
+
+*    Converting IDOC data xstring to binary
+
+    CALL FUNCTION 'SCMS_XSTRING_TO_BINARY'
+      EXPORTING
+        buffer     = lv_xstring
+      TABLES
+        binary_tab = lt_bin.
+
+
+*     Converting the Batch Job data string to xstring
+    CALL FUNCTION 'SCMS_STRING_TO_XSTRING'
+      EXPORTING
+        text   = Batch_data_string
+      IMPORTING
+        buffer = lv_batch_xstring
+      EXCEPTIONS
+        failed = 1
+        OTHERS = 2.
+
+*    Converting Batch Job data xstring to binary
+    CALL FUNCTION 'SCMS_XSTRING_TO_BINARY'
+      EXPORTING
+        buffer     = lv_batch_xstring
+      TABLES
+        binary_tab = lt_batch_bin.
+
+
+*    Converting Date to DD.MM.YYYY format  " Mail Subject
+
+    CALL FUNCTION 'CONVERT_DATE_TO_EXTERNAL'
+      EXPORTING
+        date_internal            = sy-datum
+      IMPORTING
+        date_external            = ls_date
+      EXCEPTIONS
+        date_internal_is_invalid = 1
+        OTHERS                   = 2.
+
+*      Converting Time to Hour:Min:Sec format  " Mail Subject
+
+    CONCATENATE sy-uzeit+0(2) ':' sy-uzeit+2(2) ':' sy-uzeit+4(2) INTO lv_time.
+    CONCATENATE lc_sub it_text ls_date lv_time INTO ls_sub SEPARATED BY ''.  "Main Subject with user input text
+
+
+*    Designing Mail
+    TRY.
+        CALL METHOD cl_bcs=>create_persistent
+          RECEIVING
+            result = DATA(lo_send_request).
+*   Mail Body
+        CONCATENATE lc_hiteam  lc_br INTO ls_html-line.
+        APPEND ls_html TO lt_html.
+
+        CONCATENATE lc_bodysub ls_date INTO ls_html-line RESPECTING BLANKS . "Body
+        APPEND ls_html TO lt_html.
+        message_body[] = lt_html[].
+
+*   Create doc
+        CALL METHOD cl_document_bcs=>create_document
+          EXPORTING
+            i_type    = lc_htm
+            i_subject = space   "50 char limitation
+            i_text    = message_body
+          RECEIVING
+            result    = DATA(doc).
+
+        "For email subject more than 50 Char
+        CALL METHOD lo_send_request->set_message_subject
+          EXPORTING
+            ip_subject = CONV string( ls_sub ).
+
+*    Adding attachments
+
+        CALL METHOD doc->add_attachment              "Add  Idoc attachment
+          EXPORTING
+            i_attachment_type    = 'xls'
+            i_attachment_subject = 'IDOC Excel'
+            i_att_content_hex    = lt_bin.          "Binary data to excel file
+
+
+        CALL METHOD doc->add_attachment              "Add Batch Job data attachment
+          EXPORTING
+            i_attachment_type    = 'xls'
+            i_attachment_subject = 'Batch Job Excel'
+            i_att_content_hex    = lt_batch_bin.      "Binary data to excel file
+
+
+        CALL METHOD lo_send_request->set_document
+          EXPORTING
+            i_document = doc.
+
+
+        lo_recipient = cl_cam_address_bcs=>create_internet_address( ls_mail-low ).
+
+        CALL METHOD lo_send_request->add_recipient  " adding recipient object to send request
+          EXPORTING
+            i_recipient = lo_recipient.
+
+        CALL METHOD lo_send_request->send         " Send Mail
+          RECEIVING
+            result = DATA(lv_status).
+
+        IF sy-subrc = 0.
+          MESSAGE TEXT-001 TYPE 'I'.
+        ELSE.
+          MESSAGE TEXT-002 TYPE 'I'.
+        ENDIF.
+
+*        Exception Handling
+      CATCH cx_send_req_bcs INTO bcs_exception.
+        IF bcs_exception IS NOT INITIAL.
+          CLEAR: lt_html.
+        ENDIF.
+      CATCH cx_document_bcs INTO bcs_exception.
+        IF bcs_exception IS NOT INITIAL.
+          CLEAR: lt_bin.
+        ENDIF.
+      CATCH cx_address_bcs INTO bcs_exception.
+        IF bcs_exception IS NOT INITIAL.
+          CLEAR: lo_recipient.
+        ENDIF.
+    ENDTRY.
+
+
+
+    COMMIT WORK.
+  ENDLOOP.
+ENDMETHOD.
+ENDCLASS.
